@@ -395,7 +395,7 @@
 
     <div class="field" style="margin-bottom:0;">
       <label style="display:block;">Score & breakdown</label>
-      <p class="tut-text">The big number is a 0–100 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. The bars below show how each individual factor scored.</p>
+      <p class="tut-text">The big number is a 0-10 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. The bars below show how each individual factor scored.</p>
     </div>
   </div>
 
@@ -521,7 +521,7 @@
   </div>
 
   <div class="card total-card">
-    <div class="total-num" id="totalNum">0<span>/100</span></div>
+    <div class="total-num" id="totalNum">0.0</div>
     <div class="total-label" id="totalLabel">-</div>
     <div class="spawn-note" id="spawnNote"></div>
   </div>
@@ -629,7 +629,8 @@ function totalFromRaw(raw, watertemp, seasonOverride){
   metrics.forEach(m => { weightedSum += raw[m.key] * m.weight; });
   const base = weightedSum * 10;
   const spawn = spawnPhase(watertemp, seasonOverride);
-  const total = Math.round(Math.max(0, Math.min(100, base + spawn.bonus)));
+  const total100 = Math.round(Math.max(0, Math.min(100, base + spawn.bonus)));
+  const total = Math.round(total100) / 10; // 0-10 scale, one decimal place
   return { total, spawn };
 }
 
@@ -799,8 +800,8 @@ function computeAllDayScores(){
 }
 
 function scoreColorVar(total){
-  if(total >= 65) return 'var(--reed)';
-  if(total >= 50) return 'var(--sand)';
+  if(total >= 6.5) return 'var(--reed)';
+  if(total >= 5) return 'var(--sand)';
   return 'var(--rust)';
 }
 
@@ -813,7 +814,7 @@ function buildDayStrip(){
     const chip = document.createElement('div');
     chip.className = 'day-chip' + (key === dailyData.todayKey ? ' today' : '');
     chip.dataset.key = key;
-    chip.innerHTML = `<span class="dscore" style="color:${scoreColorVar(total)}">${total}</span>` +
+    chip.innerHTML = `<span class="dscore" style="color:${scoreColorVar(total)}">${total.toFixed(1)}</span>` +
       `<span class="dow">${d.toLocaleDateString(undefined,{weekday:'short'})}</span>` +
       `<span class="dnum">${d.getDate()}</span>`;
     chip.addEventListener('click', () => selectDay(key));
@@ -826,7 +827,7 @@ function refreshDayStripScores(){
   document.querySelectorAll('#dayStrip .day-chip').forEach(chip => {
     const total = dailyData.byDate[chip.dataset.key].total;
     const scoreEl = chip.querySelector('.dscore');
-    scoreEl.textContent = total;
+    scoreEl.textContent = total.toFixed(1);
     if(!chip.classList.contains('selected')) scoreEl.style.color = scoreColorVar(total);
   });
 }
@@ -875,7 +876,7 @@ function buildForecastBubble(){
     const entry = dailyData.byDate[key];
     const tags = tagsForDay(entry.analysis.raw, entry.analysis.pressureDeltaHpa, entry.analysis.day.avgWind);
     return { key, total: entry.total, tags };
-  }).filter(c => c.total >= 60 || c.tags.some(t => t.includes('front')));
+  }).filter(c => c.total >= 6 || c.tags.some(t => t.includes('front')));
 
   candidates.sort((a,b) => b.total - a.total);
   const top = candidates.slice(0, 5).sort((a,b) => a.key.localeCompare(b.key));
@@ -888,7 +889,7 @@ function buildForecastBubble(){
       const d = new Date(c.key + 'T12:00:00');
       const label = d.toLocaleDateString(undefined,{weekday:'short', month:'numeric', day:'numeric'});
       const desc = c.tags.length ? c.tags.join(', ') : 'solid all-around conditions';
-      html += `<div class="bubble-row"><span class="bubble-date">${label}</span><span class="bubble-score">${c.total}</span><span class="bubble-desc">${desc}</span></div>`;
+      html += `<div class="bubble-row"><span class="bubble-date">${label}</span><span class="bubble-score">${c.total.toFixed(1)}</span><span class="bubble-desc">${desc}</span></div>`;
     });
   }
   bubble.innerHTML = html;
@@ -1099,13 +1100,13 @@ function render(){
   document.getElementById('v-season').textContent = seasonOverride === 'auto' ? 'Auto (from temp)' : seasonSelect.options[seasonSelect.selectedIndex].text;
 
   const { total, spawn } = totalFromRaw(raw, watertemp, seasonOverride);
-  document.getElementById('totalNum').innerHTML = total + '<span>/100</span>';
+  document.getElementById('totalNum').innerHTML = total.toFixed(1);
 
   let label = 'Tough bite';
-  if(total >= 80) label = 'Prime conditions';
-  else if(total >= 65) label = 'Good bite likely';
-  else if(total >= 50) label = 'Fair, be patient';
-  else if(total >= 35) label = 'Slow bite expected';
+  if(total >= 8) label = 'Prime conditions';
+  else if(total >= 6.5) label = 'Good bite likely';
+  else if(total >= 5) label = 'Fair, be patient';
+  else if(total >= 3.5) label = 'Slow bite expected';
 
   document.getElementById('totalLabel').textContent = label + ' · ' + spawn.phase;
   document.getElementById('spawnNote').innerHTML = '<b>' + spawn.phase + ' (' + watertemp + '°F)</b>: ' + spawn.note +
