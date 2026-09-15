@@ -312,6 +312,45 @@
     color: var(--teal);
     margin: 0;
   }
+  .strip-row{
+    display:flex;
+    align-items:center;
+    gap: 6px;
+  }
+  .strip-row .day-strip{ flex: 1; }
+  .scroll-arrow{
+    flex: 0 0 auto;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    color: var(--sand);
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family: Georgia, serif;
+  }
+  .scroll-arrow:active{ background: var(--rust); border-color: var(--rust); color: var(--paper); }
+  .chart-wrap{
+    display:none;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .chart-title{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.76rem;
+    color: var(--teal);
+    margin: 0 0 8px;
+  }
+  .chart-scroll{
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chart-scroll svg{ display:block; }
 </style>
 </head>
 <body>
@@ -326,7 +365,7 @@
 
     <div class="field">
       <label style="display:block;">Location</label>
-      <p class="tut-text">Tap "Use my location" to auto-fill everything from your GPS position, or "Enter manually" to type a latitude/longitude. Once a location loads, you can name and save it — saved spots appear as chips you can tap to reload anytime.</p>
+      <p class="tut-text">Tap "Use my location" to auto-fill everything from your GPS position, or "Enter manually" to type a latitude/longitude. Once a location loads, you can name and save it. Saved spots appear as chips you can tap to reload anytime.</p>
     </div>
 
     <div class="field">
@@ -336,7 +375,12 @@
 
     <div class="field">
       <label style="display:block;">ⓘ Upcoming good days</label>
-      <p class="tut-text">Tap the ⓘ next to "Select a day" to see which upcoming days look most promising — falling pressure, an approaching front, overcast skies, calm or gusty wind, and moon phase are all called out when they're notable.</p>
+      <p class="tut-text">Tap the ⓘ next to "Select a day" to see which upcoming days look most promising: falling pressure, an approaching front, overcast skies, calm or gusty wind, and moon phase are all called out when they're notable.</p>
+    </div>
+
+    <div class="field">
+      <label style="display:block;">📈 Pressure trend chart</label>
+      <p class="tut-text">Tap the 📈 icon to expand a line graph of pressure (in inHg) across all 21 days. It opens centered on today, marked with a highlighted dot and a dashed guide line, so you can see at a glance whether pressure has been falling, rising, or holding steady around now.</p>
     </div>
 
     <div class="field">
@@ -346,7 +390,7 @@
 
     <div class="field">
       <label style="display:block;">Water & spawn</label>
-      <p class="tut-text">Water temperature is estimated from a 5-day trailing air-temp average (there's no free public API for actual lake temperature) — adjust it if you have real data. Bass season is inferred from that estimate, or you can override it manually with the dropdown.</p>
+      <p class="tut-text">Water temperature is estimated from a 5-day trailing air-temp average (there's no free public API for actual lake temperature). Adjust it if you have real data. Bass season is inferred from that estimate, or you can override it manually with the dropdown.</p>
     </div>
 
     <div class="field" style="margin-bottom:0;">
@@ -381,10 +425,21 @@
     <div id="dayPickerWrap" style="display:none; margin-top:14px;">
       <div class="title-row">
         <p class="section-title">Select a day</p>
-        <button class="info-btn" id="forecastInfoBtn" title="Upcoming good days">ⓘ</button>
+        <div style="display:flex; gap:6px;">
+          <button class="info-btn" id="pressureChartBtn" title="Pressure trend">📈</button>
+          <button class="info-btn" id="forecastInfoBtn" title="Upcoming good days">ⓘ</button>
+        </div>
       </div>
-      <div class="day-strip" id="dayStrip"></div>
+      <div class="strip-row">
+        <button class="scroll-arrow" id="stripLeftBtn" aria-label="Scroll to earlier days">‹</button>
+        <div class="day-strip" id="dayStrip"></div>
+        <button class="scroll-arrow" id="stripRightBtn" aria-label="Scroll to later days">›</button>
+      </div>
       <div class="bubble" id="forecastBubble"></div>
+      <div class="chart-wrap" id="pressureChartWrap" style="display:none;">
+        <p class="chart-title">Pressure trend (inHg)</p>
+        <div class="chart-scroll" id="pressureChartScroll"></div>
+      </div>
     </div>
   </div>
 
@@ -453,7 +508,7 @@
     <div class="field">
       <label>Bass season <span class="val" id="v-season">Auto (from temp)</span></label>
       <select id="season">
-        <option value="auto" selected>Auto — based on water temp</option>
+        <option value="auto" selected>Auto (based on water temp)</option>
         <option value="winter">Winter / dormant</option>
         <option value="prespawn">Pre-spawn</option>
         <option value="spawn">Spawn</option>
@@ -467,7 +522,7 @@
 
   <div class="card total-card">
     <div class="total-num" id="totalNum">0<span>/100</span></div>
-    <div class="total-label" id="totalLabel">—</div>
+    <div class="total-label" id="totalLabel">-</div>
     <div class="spawn-note" id="spawnNote"></div>
   </div>
 
@@ -545,7 +600,7 @@ const SEASON_PHASES = {
   prespawn: { phase: 'Pre-spawn', bonus: 10,
     note: 'Fish are staging on flats and feeding heavily ahead of the bed. Aggressive reaction baits work well right now.' },
   spawn: { phase: 'Spawn', bonus: 4,
-    note: 'Beds are active. Females feed less, but guarding males react hard to anything near the nest — expect reaction strikes, not sustained feeding.' },
+    note: 'Beds are active. Females feed less, but guarding males react hard to anything near the nest. Expect reaction strikes, not sustained feeding.' },
   postspawn: { phase: 'Post-spawn', bonus: -6,
     note: 'Fish are recovering offshore. Feeding windows are shorter and less predictable for a week or two.' },
   summer: { phase: 'Summer pattern', bonus: 0,
@@ -587,7 +642,7 @@ function windTag(windMph){
 
 function tagsForDay(raw, pressureDeltaHpa, windMph){
   const tags = [];
-  if(raw.pressure >= 8) tags.push(pressureDeltaHpa <= -3 ? 'falling pressure — front approaching' : 'falling pressure');
+  if(raw.pressure >= 8) tags.push(pressureDeltaHpa <= -3 ? 'falling pressure, front approaching' : 'falling pressure');
   else if(raw.pressure <= 2) tags.push('pressure rising fast (post-front lull)');
   if(raw.cloud >= 9) tags.push('overcast skies');
   if(raw.precip === 9) tags.push('light rain moving through');
@@ -612,7 +667,7 @@ function loadSavedLocations(){
 
 function persistSavedLocations(list){
   try{ localStorage.setItem('fishingSavedLocations', JSON.stringify(list)); }
-  catch(e){ /* storage unavailable — fail silently */ }
+  catch(e){ /* storage unavailable, fail silently */ }
 }
 
 function renderSavedLocations(){
@@ -802,7 +857,7 @@ function selectDay(key){
 
   const waterReadout = document.getElementById('waterReadout');
   waterReadout.style.display = 'block';
-  waterReadout.innerHTML = `Estimated from 5-day trailing air temp — not a direct sensor reading. Adjust the slider if you have real data for your lake.`;
+  waterReadout.innerHTML = `Estimated from 5-day trailing air temp. Not a direct sensor reading. Adjust the slider if you have real data for your lake.`;
 
   render();
 
@@ -827,7 +882,7 @@ function buildForecastBubble(){
 
   let html = '<p class="bubble-title">Upcoming good days</p>';
   if(top.length === 0){
-    html += '<p class="bubble-empty">No standout days in the next ' + (upcomingKeys.length - 1) + ' days — conditions look fairly average throughout.</p>';
+    html += '<p class="bubble-empty">No standout days in the next ' + (upcomingKeys.length - 1) + ' days. Conditions look fairly average throughout.</p>';
   } else {
     top.forEach(c => {
       const d = new Date(c.key + 'T12:00:00');
@@ -845,12 +900,101 @@ document.getElementById('forecastInfoBtn').addEventListener('click', function(){
   this.classList.toggle('active', nowShowing);
 });
 
+document.getElementById('stripLeftBtn').addEventListener('click', () => {
+  document.getElementById('dayStrip').scrollBy({ left: -180, behavior: 'smooth' });
+});
+document.getElementById('stripRightBtn').addEventListener('click', () => {
+  document.getElementById('dayStrip').scrollBy({ left: 180, behavior: 'smooth' });
+});
+
+/* ---------- pressure trend chart ---------- */
+
+const CHART_STEP_X = 44;
+const CHART_HEIGHT = 120;
+
+function buildPressureChart(){
+  if(!dailyData) return;
+  const keys = dailyData.dateKeys;
+  const pressures = keys.map(k => hpaToInHg(dailyData.byDate[k].avgPressureHpa));
+  const minP = Math.min(...pressures);
+  const maxP = Math.max(...pressures);
+  const pad = Math.max(0.03, (maxP - minP) * 0.15);
+  const rangeMin = minP - pad;
+  const rangeMax = maxP + pad;
+  const marginTop = 10, marginBottom = 22;
+  const usableHeight = CHART_HEIGHT - marginTop - marginBottom;
+  const chartWidth = keys.length * CHART_STEP_X;
+
+  const xFor = i => i * CHART_STEP_X + CHART_STEP_X / 2;
+  const yFor = p => marginTop + usableHeight - ((p - rangeMin) / (rangeMax - rangeMin)) * usableHeight;
+
+  const todayIdx = keys.indexOf(dailyData.todayKey);
+  const points = keys.map((k, i) => `${xFor(i)},${yFor(pressures[i])}`).join(' ');
+
+  const dots = keys.map((k, i) => {
+    const isToday = k === dailyData.todayKey;
+    return `<circle cx="${xFor(i)}" cy="${yFor(pressures[i])}" r="${isToday ? 4 : 2.5}" style="fill:${isToday ? 'var(--rust)' : 'var(--reed)'}" />`;
+  }).join('');
+
+  const labels = keys.map((k, i) => {
+    if(i % 3 !== 0 && k !== dailyData.todayKey) return '';
+    const d = new Date(k + 'T12:00:00');
+    return `<text x="${xFor(i)}" y="${CHART_HEIGHT - 4}" font-size="9" style="fill:var(--teal)" text-anchor="middle" font-family="sans-serif">${d.getMonth()+1}/${d.getDate()}</text>`;
+  }).join('');
+
+  const todayLine = todayIdx >= 0
+    ? `<line x1="${xFor(todayIdx)}" y1="0" x2="${xFor(todayIdx)}" y2="${CHART_HEIGHT - 16}" style="stroke:var(--line)" stroke-dasharray="3,3" />`
+    : '';
+
+  const svg = `<svg width="${chartWidth}" height="${CHART_HEIGHT}" viewBox="0 0 ${chartWidth} ${CHART_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+    ${todayLine}
+    <polyline points="${points}" fill="none" style="stroke:var(--teal)" stroke-width="2" />
+    ${dots}
+    ${labels}
+  </svg>`;
+
+  document.getElementById('pressureChartScroll').innerHTML = svg;
+}
+
+function centerPressureChartToday(){
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if(!dailyData) return;
+      const scrollEl = document.getElementById('pressureChartScroll');
+      const idx = dailyData.dateKeys.indexOf(dailyData.todayKey);
+      if(idx < 0) return;
+      const todayX = idx * CHART_STEP_X + CHART_STEP_X / 2;
+      const target = todayX - (scrollEl.clientWidth / 2);
+      scrollEl.scrollLeft = Math.max(0, target);
+    });
+  });
+}
+
+function refreshPressureChartIfOpen(){
+  const wrap = document.getElementById('pressureChartWrap');
+  if(wrap.style.display !== 'none') buildPressureChart();
+}
+
+document.getElementById('pressureChartBtn').addEventListener('click', function(){
+  const wrap = document.getElementById('pressureChartWrap');
+  const showing = wrap.style.display === 'none';
+  if(showing){
+    buildPressureChart();
+    wrap.style.display = 'block';
+    this.classList.add('active');
+    centerPressureChartToday();
+  } else {
+    wrap.style.display = 'none';
+    this.classList.remove('active');
+  }
+});
+
 /* ---------- location handling ---------- */
 
 document.getElementById('useLocBtn').addEventListener('click', () => {
   const status = document.getElementById('locStatus');
   if(!navigator.geolocation){
-    status.textContent = 'Geolocation not supported — enter coordinates manually.';
+    status.textContent = 'Geolocation not supported. Enter coordinates manually.';
     document.getElementById('manualLoc').classList.add('show');
     return;
   }
@@ -905,8 +1049,10 @@ async function runFetch(lat, lon){
     computeAllDayScores();
     buildDayStrip();
     buildForecastBubble();
+    refreshPressureChartIfOpen();
     selectDay(dailyData.todayKey);
     centerTodayChip();
+    centerPressureChartToday();
   }catch(err){
     status.textContent = 'Could not load weather: ' + err.message;
   }
@@ -958,11 +1104,11 @@ function render(){
   let label = 'Tough bite';
   if(total >= 80) label = 'Prime conditions';
   else if(total >= 65) label = 'Good bite likely';
-  else if(total >= 50) label = 'Fair — be patient';
+  else if(total >= 50) label = 'Fair, be patient';
   else if(total >= 35) label = 'Slow bite expected';
 
   document.getElementById('totalLabel').textContent = label + ' · ' + spawn.phase;
-  document.getElementById('spawnNote').innerHTML = '<b>' + spawn.phase + ' (' + watertemp + '°F)</b> — ' + spawn.note +
+  document.getElementById('spawnNote').innerHTML = '<b>' + spawn.phase + ' (' + watertemp + '°F)</b>: ' + spawn.note +
     (spawn.bonus !== 0 ? ' <i>(' + (spawn.bonus > 0 ? '+' : '') + spawn.bonus + ' to total score)</i>' : '');
 
   const bars = document.getElementById('bars');
