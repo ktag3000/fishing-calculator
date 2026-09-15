@@ -306,12 +306,54 @@
     text-align: left;
   }
   .spawn-note b{color: var(--sand); font-weight: 600;}
+  .tut-text{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.82rem;
+    color: var(--teal);
+    margin: 0;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Bass Fishing Conditions</h1>
   <p class="sub">Auto-filled from your location's weather, spanning the last 10 days and next 10 days.</p>
+
+  <button class="btn secondary" id="tutorialToggle" style="margin-bottom:14px;">Show tutorial</button>
+
+  <div class="card" id="tutorialCard" style="display:none;">
+    <p class="section-title">How this works</p>
+
+    <div class="field">
+      <label style="display:block;">Location</label>
+      <p class="tut-text">Tap "Use my location" to auto-fill everything from your GPS position, or "Enter manually" to type a latitude/longitude. Once a location loads, you can name and save it — saved spots appear as chips you can tap to reload anytime.</p>
+    </div>
+
+    <div class="field">
+      <label style="display:block;">Select a day</label>
+      <p class="tut-text">The strip shows the last 10 days and the next 10, each labeled with its total score. Tap any day to load its weather into the inputs below. Today is outlined; the day you've selected is highlighted in orange.</p>
+    </div>
+
+    <div class="field">
+      <label style="display:block;">ⓘ Upcoming good days</label>
+      <p class="tut-text">Tap the ⓘ next to "Select a day" to see which upcoming days look most promising — falling pressure, an approaching front, overcast skies, calm or gusty wind, and moon phase are all called out when they're notable.</p>
+    </div>
+
+    <div class="field">
+      <label style="display:block;">Weather inputs</label>
+      <p class="tut-text">Pressure trend, wind, cloud cover, precipitation, and moon phase are auto-filled from real weather data for whichever day you pick, but every field stays editable if you want to try different conditions.</p>
+    </div>
+
+    <div class="field">
+      <label style="display:block;">Water & spawn</label>
+      <p class="tut-text">Water temperature is estimated from a 5-day trailing air-temp average (there's no free public API for actual lake temperature) — adjust it if you have real data. Bass season is inferred from that estimate, or you can override it manually with the dropdown.</p>
+    </div>
+
+    <div class="field" style="margin-bottom:0;">
+      <label style="display:block;">Score & breakdown</label>
+      <p class="tut-text">The big number is a 0–100 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. The bars below show how each individual factor scored.</p>
+    </div>
+  </div>
 
   <div class="card">
     <p class="section-title">Location</p>
@@ -613,6 +655,13 @@ document.getElementById('saveLocBtn').addEventListener('click', () => {
 });
 
 renderSavedLocations();
+
+document.getElementById('tutorialToggle').addEventListener('click', function(){
+  const card = document.getElementById('tutorialCard');
+  const showing = card.style.display === 'none';
+  card.style.display = showing ? 'block' : 'none';
+  this.textContent = showing ? 'Hide tutorial' : 'Show tutorial';
+});
 
 async function fetchWeather(lat, lon){
   document.getElementById('locStatus').textContent = 'Loading weather…';
