@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fishing Conditions Score</title>
+<style>
+  :root{
+    --ink: #16232C;
+    --panel: #1E313D;
+    --reed: #5C8A5A;
+    --sand: #E4D8B8;
+    --rust: #C1622D;
+    --teal: #7FA79A;
+    --paper: #F3EEE1;
+    --line: rgba(228,216,184,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    line-height:1.4;
+    padding: 20px 16px 60px;
+  }
+  .wrap{max-width:520px;margin:0 auto;}
+  h1{
+    font-size: 1.5rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    margin: 0 0 4px;
+    color: var(--sand);
+  }
+  .sub{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+    color: var(--teal);
+    margin: 0 0 24px;
+  }
+  .card{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+  .field{margin-bottom: 16px;}
+  .field:last-child{margin-bottom:0;}
+  label{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.82rem;
+    color: var(--sand);
+    margin-bottom: 6px;
+  }
+  label .val{
+    color: var(--teal);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  select, input[type=range], input[type=text], input[type=number]{
+    width:100%;
+  }
+  select, input[type=text], input[type=number]{
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 9px 10px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.9rem;
+  }
+  input[type=range]{
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px;height:16px;
+    border-radius:50%;
+    background: var(--rust);
+    cursor:pointer;
+    border: 2px solid var(--paper);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;
+    border-radius:50%;
+    background: var(--rust);
+    cursor:pointer;
+    border: 2px solid var(--paper);
+  }
+  .section-title{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.78rem;
+    color: var(--teal);
+    margin: 0 0 12px;
+  }
+  .title-row{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    position: relative;
+  }
+  .title-row .section-title{margin-bottom:0;}
+  .info-btn{
+    background: var(--ink);
+    border: 1px solid var(--line);
+    color: var(--teal);
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family: Georgia, serif;
+    flex-shrink:0;
+  }
+  .info-btn.active{ background: var(--rust); border-color: var(--rust); color: var(--paper); }
+  .bubble{
+    display:none;
+    position: relative;
+    background: var(--ink);
+    border: 1px solid var(--reed);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.8rem;
+    color: var(--paper);
+  }
+  .bubble.show{display:block;}
+  .bubble::before{
+    content:'';
+    position:absolute;
+    top:-7px; right:14px;
+    width:12px; height:12px;
+    background: var(--ink);
+    border-left: 1px solid var(--reed);
+    border-top: 1px solid var(--reed);
+    transform: rotate(45deg);
+  }
+  .bubble-title{
+    color: var(--reed);
+    font-weight:bold;
+    margin: 0 0 8px;
+  }
+  .bubble-row{
+    display:flex;
+    gap:8px;
+    padding: 6px 0;
+    border-top: 1px solid var(--line);
+  }
+  .bubble-row:first-of-type{border-top:none; padding-top:0;}
+  .bubble-date{color: var(--sand); flex-shrink:0; width:56px;}
+  .bubble-score{color: var(--reed); font-weight:bold; flex-shrink:0; width:34px;}
+  .bubble-desc{color: var(--teal); flex:1;}
+  .bubble-empty{color: var(--teal); font-style: italic;}
+  .row{display:flex; gap:8px;}
+  .row > *{flex:1;}
+  .btn{
+    background: var(--rust);
+    color: var(--paper);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    width:100%;
+  }
+  .btn.secondary{
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--sand);
+  }
+  .status{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.78rem;
+    color: var(--teal);
+    margin-top: 10px;
+    min-height: 1.2em;
+  }
+  .manual-loc{
+    display:none;
+    margin-top: 12px;
+    gap: 8px;
+  }
+  .manual-loc.show{display:flex;}
+  .day-strip{
+    display:flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    margin-top: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .day-strip::-webkit-scrollbar{height:4px;}
+  .day-chip{
+    flex: 0 0 auto;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px 8px;
+    text-align:center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    cursor:pointer;
+    min-width: 52px;
+  }
+  .day-chip .dscore{font-size:0.72rem; font-weight:bold; color:var(--reed); display:block;}
+  .day-chip .dow{font-size:0.66rem; color:var(--teal); display:block; margin-top:3px;}
+  .day-chip .dnum{font-size:0.92rem; color:var(--sand); display:block; margin-top:1px;}
+  .day-chip.today{border-color: var(--reed);}
+  .day-chip.selected{background: var(--rust); border-color: var(--rust);}
+  .day-chip.selected .dow, .day-chip.selected .dnum{color: var(--paper);}
+  .day-chip.selected .dscore{color: var(--paper);}
+  .loc-chip{
+    position: relative;
+    padding-right: 18px;
+  }
+  .loc-chip .dow{
+    font-size: 0.78rem;
+    color: var(--sand);
+    white-space: nowrap;
+    margin-top: 0;
+  }
+  .loc-del{
+    position:absolute;
+    top:-6px; right:-6px;
+    background: var(--rust);
+    color: var(--paper);
+    border-radius:50%;
+    width:16px; height:16px;
+    font-size:11px;
+    line-height:16px;
+    text-align:center;
+    cursor:pointer;
+  }
+  .readout{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.76rem;
+    color: var(--teal);
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .bars{margin-top: 4px;}
+  .bar-row{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    margin-bottom: 9px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.78rem;
+  }
+  .bar-label{width:88px; color: var(--sand); flex-shrink:0;}
+  .bar-track{
+    flex:1;
+    height:8px;
+    background: var(--line);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .bar-fill{
+    height:100%;
+    background: var(--reed);
+    border-radius:4px;
+    transition: width 0.25s ease;
+  }
+  .bar-score{width:34px; text-align:right; color: var(--teal); flex-shrink:0;}
+  .total-card{
+    background: linear-gradient(160deg, var(--panel), var(--ink));
+    border: 1px solid var(--line);
+    text-align:center;
+    padding: 22px 18px 20px;
+  }
+  .total-num{
+    font-size: 3.2rem;
+    color: var(--sand);
+    line-height:1;
+    font-variant-numeric: tabular-nums;
+  }
+  .total-num span{font-size:1.3rem; color: var(--teal);}
+  .total-label{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+    color: var(--rust);
+    margin-top: 6px;
+    letter-spacing: 0.01em;
+  }
+  .spawn-note{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.8rem;
+    color: var(--teal);
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    text-align: left;
+  }
+  .spawn-note b{color: var(--sand); font-weight: 600;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Bass Fishing Conditions</h1>
+  <p class="sub">Auto-filled from your location's weather, spanning the last 10 days and next 10 days.</p>
+
+  <div class="card">
+    <p class="section-title">Location</p>
+    <div class="row">
+      <button class="btn" id="useLocBtn">Use my location</button>
+      <button class="btn secondary" id="manualLocBtn">Enter manually</button>
+    </div>
+    <div class="manual-loc" id="manualLoc">
+      <input type="number" step="0.01" id="latInput" placeholder="Latitude">
+      <input type="number" step="0.01" id="lonInput" placeholder="Longitude">
+      <button class="btn" id="loadManualBtn" style="flex:0 0 auto; width:auto;">Load</button>
+    </div>
+    <div class="status" id="locStatus">Tap "Use my location" to auto-fill conditions.</div>
+
+    <div class="row" id="saveLocRow" style="display:none; margin-top:10px;">
+      <input type="text" id="saveLocName" placeholder="Name this spot (e.g. Lake Ray Hubbard)">
+      <button class="btn secondary" id="saveLocBtn" style="flex:0 0 auto; width:auto;">Save</button>
+    </div>
+
+    <div id="savedLocsWrap" style="display:none; margin-top:12px;">
+      <p class="section-title" style="margin-bottom:6px;">Saved locations</p>
+      <div class="day-strip" id="savedLocsStrip"></div>
+    </div>
+
+    <div id="dayPickerWrap" style="display:none; margin-top:14px;">
+      <div class="title-row">
+        <p class="section-title">Select a day</p>
+        <button class="info-btn" id="forecastInfoBtn" title="Upcoming good days">ⓘ</button>
+      </div>
+      <div class="day-strip" id="dayStrip"></div>
+      <div class="bubble" id="forecastBubble"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="section-title">Weather inputs</p>
+
+    <div class="field">
+      <label>Barometric pressure trend <span class="val" id="v-pressure"></span></label>
+      <select id="pressure">
+        <option value="10">Falling fast</option>
+        <option value="8">Falling slowly</option>
+        <option value="6" selected>Stable</option>
+        <option value="4">Rising slowly</option>
+        <option value="2">Rising fast (post-front)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Wind speed <span class="val" id="v-wind">8 mph</span></label>
+      <input type="range" id="wind" min="0" max="30" value="8">
+    </div>
+
+    <div class="field">
+      <label>Cloud cover <span class="val" id="v-cloud">50%</span></label>
+      <input type="range" id="cloud" min="0" max="100" value="50">
+    </div>
+
+    <div class="field">
+      <label>Precipitation <span class="val" id="v-precip"></span></label>
+      <select id="precip">
+        <option value="6" selected>None</option>
+        <option value="9">Light rain</option>
+        <option value="5">Moderate rain</option>
+        <option value="2">Heavy rain</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Moon phase <span class="val" id="v-moon"></span></label>
+      <select id="moon">
+        <option value="9">New moon</option>
+        <option value="5" selected>Waxing / waning</option>
+        <option value="9">Full moon</option>
+      </select>
+    </div>
+    <div class="readout" id="weatherReadout" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-title">Water & spawn</p>
+
+    <div class="field">
+      <label>Water temperature <span class="val" id="v-watertemp">58°F</span></label>
+      <input type="range" id="watertemp" min="35" max="100" value="58">
+    </div>
+
+    <div class="field">
+      <label>Water temp trend <span class="val" id="v-tempTrend"></span></label>
+      <select id="tempTrend">
+        <option value="9" selected>Warming</option>
+        <option value="6">Stable</option>
+        <option value="3">Cooling</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Bass season <span class="val" id="v-season">Auto (from temp)</span></label>
+      <select id="season">
+        <option value="auto" selected>Auto — based on water temp</option>
+        <option value="winter">Winter / dormant</option>
+        <option value="prespawn">Pre-spawn</option>
+        <option value="spawn">Spawn</option>
+        <option value="postspawn">Post-spawn</option>
+        <option value="summer">Summer pattern</option>
+        <option value="fall">Fall feed-up</option>
+      </select>
+    </div>
+    <div class="readout" id="waterReadout" style="display:none;"></div>
+  </div>
+
+  <div class="card total-card">
+    <div class="total-num" id="totalNum">0<span>/100</span></div>
+    <div class="total-label" id="totalLabel">—</div>
+    <div class="spawn-note" id="spawnNote"></div>
+  </div>
+
+  <div class="card">
+    <p class="section-title">Score breakdown</p>
+    <div class="bars" id="bars"></div>
+  </div>
+</div>
+
+<script>
+const metrics = [
+  { key: 'pressure', label: 'Pressure', weight: 0.25 },
+  { key: 'wind', label: 'Wind', weight: 0.15 },
+  { key: 'cloud', label: 'Cloud cover', weight: 0.15 },
+  { key: 'tempTrend', label: 'Temp trend', weight: 0.15 },
+  { key: 'moon', label: 'Moon phase', weight: 0.15 },
+  { key: 'precip', label: 'Precip', weight: 0.15 },
+];
+
+const HPA_TO_INHG = 0.0295299830714;
+const hpaToInHg = hpa => hpa * HPA_TO_INHG;
+
+/* ---------- scoring helpers ---------- */
+
+function windScore(mph){
+  if(mph < 3) return 5;
+  if(mph <= 14) return 9;
+  if(mph <= 20) return 6;
+  return 3;
+}
+
+function cloudScore(pct){
+  if(pct < 15) return 4;
+  if(pct < 40) return 6;
+  if(pct <= 85) return 9;
+  return 7;
+}
+
+function pressureScoreFromDelta(deltaHpa){
+  if(deltaHpa <= -3) return 10;
+  if(deltaHpa <= -1) return 8;
+  if(deltaHpa < 1) return 6;
+  if(deltaHpa < 3) return 4;
+  return 2;
+}
+
+function precipScoreFromInches(inches){
+  if(inches <= 0.001) return 6;
+  if(inches <= 0.1) return 9;
+  if(inches <= 0.5) return 5;
+  return 2;
+}
+
+function tempTrendScoreFromDelta(deltaF){
+  if(deltaF > 1) return 9;
+  if(deltaF < -1) return 3;
+  return 6;
+}
+
+function moonScoreForDate(dateStr){
+  const ref = Date.UTC(2000,0,6,18,14,0);
+  const synodic = 29.53058867;
+  const d = new Date(dateStr + 'T12:00:00Z').getTime();
+  let days = (d - ref) / 86400000;
+  let phase = (days % synodic) / synodic;
+  if(phase < 0) phase += 1;
+  const distNew = Math.min(phase, 1 - phase);
+  const distFull = Math.abs(phase - 0.5);
+  return Math.min(distNew, distFull) < 0.09 ? 9 : 5;
+}
+
+const SEASON_PHASES = {
+  winter: { phase: 'Winter / dormant', bonus: -2,
+    note: 'Water is cold and fish are sluggish, holding deep and feeding on a slow metabolism. Small, slow presentations outperform reaction baits.' },
+  prespawn: { phase: 'Pre-spawn', bonus: 10,
+    note: 'Fish are staging on flats and feeding heavily ahead of the bed. Aggressive reaction baits work well right now.' },
+  spawn: { phase: 'Spawn', bonus: 4,
+    note: 'Beds are active. Females feed less, but guarding males react hard to anything near the nest — expect reaction strikes, not sustained feeding.' },
+  postspawn: { phase: 'Post-spawn', bonus: -6,
+    note: 'Fish are recovering offshore. Feeding windows are shorter and less predictable for a week or two.' },
+  summer: { phase: 'Summer pattern', bonus: 0,
+    note: 'Fish have settled into deeper, stable structure. Early/late light and current breaks matter more than the spawn cycle now.' },
+  fall: { phase: 'Fall feed-up', bonus: 7,
+    note: 'Cooling water triggers an aggressive feeding push ahead of winter. Reaction baits and moving shad often produce best.' },
+};
+
+function spawnPhaseFromTemp(tempF){
+  if(tempF >= 55 && tempF < 60) return SEASON_PHASES.prespawn;
+  if(tempF >= 60 && tempF < 68) return SEASON_PHASES.spawn;
+  if(tempF >= 68 && tempF < 75) return SEASON_PHASES.postspawn;
+  if(tempF >= 75) return SEASON_PHASES.summer;
+  return SEASON_PHASES.winter;
+}
+
+function spawnPhase(tempF, seasonOverride){
+  if(seasonOverride && seasonOverride !== 'auto' && SEASON_PHASES[seasonOverride]){
+    return SEASON_PHASES[seasonOverride];
+  }
+  return spawnPhaseFromTemp(tempF);
+}
+
+function totalFromRaw(raw, watertemp, seasonOverride){
+  let weightedSum = 0;
+  metrics.forEach(m => { weightedSum += raw[m.key] * m.weight; });
+  const base = weightedSum * 10;
+  const spawn = spawnPhase(watertemp, seasonOverride);
+  const total = Math.round(Math.max(0, Math.min(100, base + spawn.bonus)));
+  return { total, spawn };
+}
+
+function windTag(windMph){
+  if(windMph < 3) return 'no wind';
+  if(windMph <= 14) return 'light wind';
+  if(windMph <= 20) return 'breezy';
+  return 'gusty wind';
+}
+
+function tagsForDay(raw, pressureDeltaHpa, windMph){
+  const tags = [];
+  if(raw.pressure >= 8) tags.push(pressureDeltaHpa <= -3 ? 'falling pressure — front approaching' : 'falling pressure');
+  else if(raw.pressure <= 2) tags.push('pressure rising fast (post-front lull)');
+  if(raw.cloud >= 9) tags.push('overcast skies');
+  if(raw.precip === 9) tags.push('light rain moving through');
+  if(windMph < 3 || windMph > 20 || raw.wind === 9) tags.push(windTag(windMph));
+  if(raw.moon === 9) tags.push('new/full moon');
+  return tags;
+}
+
+/* ---------- weather fetching ---------- */
+
+let dailyData = null;
+let selectedDateKey = null;
+let currentLat = null;
+let currentLon = null;
+
+/* ---------- saved locations (localStorage) ---------- */
+
+function loadSavedLocations(){
+  try{ return JSON.parse(localStorage.getItem('fishingSavedLocations') || '[]'); }
+  catch(e){ return []; }
+}
+
+function persistSavedLocations(list){
+  try{ localStorage.setItem('fishingSavedLocations', JSON.stringify(list)); }
+  catch(e){ /* storage unavailable — fail silently */ }
+}
+
+function renderSavedLocations(){
+  const list = loadSavedLocations();
+  const wrap = document.getElementById('savedLocsWrap');
+  const strip = document.getElementById('savedLocsStrip');
+  if(list.length === 0){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  strip.innerHTML = '';
+  list.forEach((loc, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'day-chip loc-chip';
+    chip.innerHTML = `<span class="dow">${loc.name}</span>`;
+    chip.title = 'Load ' + loc.name;
+    chip.addEventListener('click', () => runFetch(loc.lat, loc.lon));
+    const del = document.createElement('span');
+    del.className = 'loc-del';
+    del.textContent = '×';
+    del.title = 'Remove';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const current = loadSavedLocations();
+      current.splice(i, 1);
+      persistSavedLocations(current);
+      renderSavedLocations();
+    });
+    chip.appendChild(del);
+    strip.appendChild(chip);
+  });
+}
+
+document.getElementById('saveLocBtn').addEventListener('click', () => {
+  const name = document.getElementById('saveLocName').value.trim();
+  if(!name || currentLat == null) return;
+  const list = loadSavedLocations();
+  list.push({ name, lat: currentLat, lon: currentLon });
+  persistSavedLocations(list);
+  document.getElementById('saveLocName').value = '';
+  renderSavedLocations();
+});
+
+renderSavedLocations();
+
+async function fetchWeather(lat, lon){
+  document.getElementById('locStatus').textContent = 'Loading weather…';
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&hourly=temperature_2m,precipitation,cloudcover,pressure_msl,windspeed_10m` +
+    `&past_days=10&forecast_days=10&timezone=auto` +
+    `&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch`;
+
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Weather request failed (' + res.status + ')');
+  const data = await res.json();
+
+  const h = data.hourly;
+  const byDate = {};
+  for(let i = 0; i < h.time.length; i++){
+    const dateKey = h.time[i].slice(0,10);
+    if(!byDate[dateKey]) byDate[dateKey] = { temps: [], precip: 0, cloud: [], pressure: [], wind: [] };
+    const day = byDate[dateKey];
+    if(h.temperature_2m[i] != null) day.temps.push(h.temperature_2m[i]);
+    if(h.precipitation[i] != null) day.precip += h.precipitation[i];
+    if(h.cloudcover[i] != null) day.cloud.push(h.cloudcover[i]);
+    if(h.pressure_msl[i] != null) day.pressure.push(h.pressure_msl[i]);
+    if(h.windspeed_10m[i] != null) day.wind.push(h.windspeed_10m[i]);
+  }
+
+  const avg = arr => arr.reduce((a,b) => a+b, 0) / arr.length;
+  const dateKeys = Object.keys(byDate).sort();
+  dateKeys.forEach(k => {
+    const d = byDate[k];
+    d.avgTemp = avg(d.temps);
+    d.avgCloud = avg(d.cloud);
+    d.avgPressureHpa = avg(d.pressure);
+    d.avgWind = avg(d.wind);
+  });
+
+  dateKeys.forEach((k, idx) => {
+    const windowKeys = dateKeys.slice(Math.max(0, idx - 4), idx + 1);
+    byDate[k].waterTempEst = avg(windowKeys.map(wk => byDate[wk].avgTemp));
+  });
+
+  const tz = data.timezone;
+  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
+
+  dailyData = { dateKeys, byDate, todayKey };
+  return dailyData;
+}
+
+// Full metric analysis for one day, independent of DOM state
+function analyzeDay(key){
+  const idx = dailyData.dateKeys.indexOf(key);
+  const day = dailyData.byDate[key];
+  const prevDay = idx > 0 ? dailyData.byDate[dailyData.dateKeys[idx-1]] : null;
+  const prevWaterIdx = Math.max(0, idx - 3);
+  const prevWaterTemp = dailyData.byDate[dailyData.dateKeys[prevWaterIdx]].waterTempEst;
+
+  const pressureDeltaHpa = prevDay ? (day.avgPressureHpa - prevDay.avgPressureHpa) : 0;
+
+  const raw = {
+    pressure: pressureScoreFromDelta(pressureDeltaHpa),
+    wind: windScore(day.avgWind),
+    cloud: cloudScore(day.avgCloud),
+    precip: precipScoreFromInches(day.precip),
+    moon: moonScoreForDate(key),
+    tempTrend: tempTrendScoreFromDelta(day.waterTempEst - prevWaterTemp),
+  };
+
+  return { raw, pressureDeltaHpa, watertemp: day.waterTempEst, day };
+}
+
+// Recompute total scores for every day in range (used for chip badges + insights)
+function computeAllDayScores(){
+  const seasonOverride = document.getElementById('season').value;
+  dailyData.dateKeys.forEach(key => {
+    const a = analyzeDay(key);
+    const { total, spawn } = totalFromRaw(a.raw, a.watertemp, seasonOverride);
+    dailyData.byDate[key].analysis = a;
+    dailyData.byDate[key].total = total;
+    dailyData.byDate[key].spawn = spawn;
+  });
+}
+
+function scoreColorVar(total){
+  if(total >= 65) return 'var(--reed)';
+  if(total >= 50) return 'var(--sand)';
+  return 'var(--rust)';
+}
+
+function buildDayStrip(){
+  const strip = document.getElementById('dayStrip');
+  strip.innerHTML = '';
+  dailyData.dateKeys.forEach(key => {
+    const d = new Date(key + 'T12:00:00');
+    const total = dailyData.byDate[key].total;
+    const chip = document.createElement('div');
+    chip.className = 'day-chip' + (key === dailyData.todayKey ? ' today' : '');
+    chip.dataset.key = key;
+    chip.innerHTML = `<span class="dscore" style="color:${scoreColorVar(total)}">${total}</span>` +
+      `<span class="dow">${d.toLocaleDateString(undefined,{weekday:'short'})}</span>` +
+      `<span class="dnum">${d.getDate()}</span>`;
+    chip.addEventListener('click', () => selectDay(key));
+    strip.appendChild(chip);
+  });
+  document.getElementById('dayPickerWrap').style.display = 'block';
+}
+
+function refreshDayStripScores(){
+  document.querySelectorAll('#dayStrip .day-chip').forEach(chip => {
+    const total = dailyData.byDate[chip.dataset.key].total;
+    const scoreEl = chip.querySelector('.dscore');
+    scoreEl.textContent = total;
+    if(!chip.classList.contains('selected')) scoreEl.style.color = scoreColorVar(total);
+  });
+}
+
+function selectDay(key){
+  selectedDateKey = key;
+  document.querySelectorAll('#dayStrip .day-chip').forEach(c => {
+    c.classList.toggle('selected', c.dataset.key === key);
+  });
+
+  const a = analyzeDay(key);
+  const day = a.day;
+
+  document.getElementById('pressure').value = a.raw.pressure;
+  document.getElementById('wind').value = Math.round(day.avgWind);
+  document.getElementById('cloud').value = Math.round(day.avgCloud);
+  document.getElementById('precip').value = a.raw.precip;
+  document.getElementById('moon').value = a.raw.moon;
+  document.getElementById('watertemp').value = Math.round(a.watertemp);
+  document.getElementById('tempTrend').value = a.raw.tempTrend;
+
+  const avgInHg = hpaToInHg(day.avgPressureHpa);
+  const deltaInHg = hpaToInHg(a.pressureDeltaHpa);
+
+  const readout = document.getElementById('weatherReadout');
+  readout.style.display = 'block';
+  readout.innerHTML = `Avg air temp ${day.avgTemp.toFixed(0)}°F · pressure ${avgInHg.toFixed(2)} inHg (Δ${deltaInHg>=0?'+':''}${deltaInHg.toFixed(2)}) · rain ${day.precip.toFixed(2)}in`;
+
+  const waterReadout = document.getElementById('waterReadout');
+  waterReadout.style.display = 'block';
+  waterReadout.innerHTML = `Estimated from 5-day trailing air temp — not a direct sensor reading. Adjust the slider if you have real data for your lake.`;
+
+  render();
+
+  // overwrite the pressure label with the actual inHg reading
+  const label = document.getElementById('v-pressure').textContent;
+  document.getElementById('v-pressure').textContent = label + ' · ' + avgInHg.toFixed(2) + ' inHg';
+}
+
+function buildForecastBubble(){
+  const bubble = document.getElementById('forecastBubble');
+  const todayIdx = dailyData.dateKeys.indexOf(dailyData.todayKey);
+  const upcomingKeys = dailyData.dateKeys.slice(Math.max(0, todayIdx));
+
+  const candidates = upcomingKeys.map(key => {
+    const entry = dailyData.byDate[key];
+    const tags = tagsForDay(entry.analysis.raw, entry.analysis.pressureDeltaHpa, entry.analysis.day.avgWind);
+    return { key, total: entry.total, tags };
+  }).filter(c => c.total >= 60 || c.tags.some(t => t.includes('front')));
+
+  candidates.sort((a,b) => b.total - a.total);
+  const top = candidates.slice(0, 5).sort((a,b) => a.key.localeCompare(b.key));
+
+  let html = '<p class="bubble-title">Upcoming good days</p>';
+  if(top.length === 0){
+    html += '<p class="bubble-empty">No standout days in the next ' + (upcomingKeys.length - 1) + ' days — conditions look fairly average throughout.</p>';
+  } else {
+    top.forEach(c => {
+      const d = new Date(c.key + 'T12:00:00');
+      const label = d.toLocaleDateString(undefined,{weekday:'short', month:'numeric', day:'numeric'});
+      const desc = c.tags.length ? c.tags.join(', ') : 'solid all-around conditions';
+      html += `<div class="bubble-row"><span class="bubble-date">${label}</span><span class="bubble-score">${c.total}</span><span class="bubble-desc">${desc}</span></div>`;
+    });
+  }
+  bubble.innerHTML = html;
+}
+
+document.getElementById('forecastInfoBtn').addEventListener('click', function(){
+  const bubble = document.getElementById('forecastBubble');
+  const nowShowing = bubble.classList.toggle('show');
+  this.classList.toggle('active', nowShowing);
+});
+
+/* ---------- location handling ---------- */
+
+document.getElementById('useLocBtn').addEventListener('click', () => {
+  const status = document.getElementById('locStatus');
+  if(!navigator.geolocation){
+    status.textContent = 'Geolocation not supported — enter coordinates manually.';
+    document.getElementById('manualLoc').classList.add('show');
+    return;
+  }
+  status.textContent = 'Requesting location…';
+  navigator.geolocation.getCurrentPosition(
+    pos => runFetch(pos.coords.latitude, pos.coords.longitude),
+    err => {
+      status.textContent = 'Location unavailable (' + err.message + '). Enter coordinates manually.';
+      document.getElementById('manualLoc').classList.add('show');
+    },
+    { timeout: 8000 }
+  );
+});
+
+document.getElementById('manualLocBtn').addEventListener('click', () => {
+  document.getElementById('manualLoc').classList.toggle('show');
+});
+
+document.getElementById('loadManualBtn').addEventListener('click', () => {
+  const lat = parseFloat(document.getElementById('latInput').value);
+  const lon = parseFloat(document.getElementById('lonInput').value);
+  if(isNaN(lat) || isNaN(lon)){
+    document.getElementById('locStatus').textContent = 'Enter valid latitude and longitude.';
+    return;
+  }
+  runFetch(lat, lon);
+});
+
+function centerTodayChip(){
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const strip = document.getElementById('dayStrip');
+      const chip = strip.querySelector('.day-chip.today');
+      if(!chip) return;
+      const stripRect = strip.getBoundingClientRect();
+      const chipRect = chip.getBoundingClientRect();
+      const chipCenterOffset = (chipRect.left - stripRect.left) + (chipRect.width / 2);
+      const target = strip.scrollLeft + chipCenterOffset - (stripRect.width / 2);
+      strip.scrollLeft = Math.max(0, target);
+    });
+  });
+}
+
+async function runFetch(lat, lon){
+  const status = document.getElementById('locStatus');
+  try{
+    await fetchWeather(lat.toFixed(3), lon.toFixed(3));
+    currentLat = lat;
+    currentLon = lon;
+    status.textContent = `Loaded weather for ${lat.toFixed(2)}, ${lon.toFixed(2)}.`;
+    document.getElementById('saveLocRow').style.display = 'flex';
+    computeAllDayScores();
+    buildDayStrip();
+    buildForecastBubble();
+    selectDay(dailyData.todayKey);
+    centerTodayChip();
+  }catch(err){
+    status.textContent = 'Could not load weather: ' + err.message;
+  }
+}
+
+/* ---------- score rendering ---------- */
+
+function readInputs(){
+  return {
+    pressure: Number(document.getElementById('pressure').value),
+    wind: windScore(Number(document.getElementById('wind').value)),
+    cloud: cloudScore(Number(document.getElementById('cloud').value)),
+    tempTrend: Number(document.getElementById('tempTrend').value),
+    moon: Number(document.getElementById('moon').value),
+    precip: Number(document.getElementById('precip').value),
+  };
+}
+
+function labelFor(id, val){
+  const el = document.getElementById('v-' + id);
+  const selectMap = {
+    pressure: {10:'Falling fast',8:'Falling slowly',6:'Stable',4:'Rising slowly',2:'Rising fast'},
+    precip: {6:'None',9:'Light',5:'Moderate',2:'Heavy'},
+    moon: {9:'New/Full', 5:'Waxing/waning'},
+    tempTrend: {9:'Warming',6:'Stable',3:'Cooling'}
+  };
+  if(selectMap[id]) el.textContent = selectMap[id][val] || '';
+}
+
+function render(){
+  const raw = readInputs();
+  const watertemp = Number(document.getElementById('watertemp').value);
+
+  document.getElementById('v-wind').textContent = document.getElementById('wind').value + ' mph';
+  document.getElementById('v-cloud').textContent = document.getElementById('cloud').value + '%';
+  document.getElementById('v-watertemp').textContent = watertemp + '°F';
+  labelFor('pressure', Number(document.getElementById('pressure').value));
+  labelFor('precip', Number(document.getElementById('precip').value));
+  labelFor('moon', Number(document.getElementById('moon').value));
+  labelFor('tempTrend', Number(document.getElementById('tempTrend').value));
+
+  const seasonSelect = document.getElementById('season');
+  const seasonOverride = seasonSelect.value;
+  document.getElementById('v-season').textContent = seasonOverride === 'auto' ? 'Auto (from temp)' : seasonSelect.options[seasonSelect.selectedIndex].text;
+
+  const { total, spawn } = totalFromRaw(raw, watertemp, seasonOverride);
+  document.getElementById('totalNum').innerHTML = total + '<span>/100</span>';
+
+  let label = 'Tough bite';
+  if(total >= 80) label = 'Prime conditions';
+  else if(total >= 65) label = 'Good bite likely';
+  else if(total >= 50) label = 'Fair — be patient';
+  else if(total >= 35) label = 'Slow bite expected';
+
+  document.getElementById('totalLabel').textContent = label + ' · ' + spawn.phase;
+  document.getElementById('spawnNote').innerHTML = '<b>' + spawn.phase + ' (' + watertemp + '°F)</b> — ' + spawn.note +
+    (spawn.bonus !== 0 ? ' <i>(' + (spawn.bonus > 0 ? '+' : '') + spawn.bonus + ' to total score)</i>' : '');
+
+  const bars = document.getElementById('bars');
+  bars.innerHTML = '';
+  metrics.forEach(m => {
+    const score = raw[m.key];
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <div class="bar-label">${m.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${score*10}%"></div></div>
+      <div class="bar-score">${score}/10</div>
+    `;
+    bars.appendChild(row);
+  });
+
+  // if a day is loaded, keep its chip badges and the info bubble in sync
+  // with any manual overrides that affect scoring for every day (e.g. season)
+  if(dailyData){
+    computeAllDayScores();
+    refreshDayStripScores();
+    buildForecastBubble();
+  }
+}
+
+document.querySelectorAll('select, input[type=range]').forEach(el => {
+  el.addEventListener('input', render);
+});
+render();
+</script>
+</body>
+</html>
