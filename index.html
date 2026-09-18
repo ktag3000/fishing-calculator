@@ -386,7 +386,7 @@
 
     <div class="field">
       <label style="display:block;">Location</label>
-      <p class="tut-text">Tap "Use my location" to auto-fill everything from your GPS position, "Enter manually" to type a latitude/longitude, or "ZIP code or city/state" to look up a US ZIP or a place name. Once a location loads, you can name and save it. Saved spots appear as chips you can tap to reload anytime.</p>
+      <p class="tut-text">Tap "Use my location" to auto-fill everything from your GPS position, "Enter manually" to type a latitude/longitude, or "ZIP code or city/state" to look up a US ZIP or a place name. Once a location loads, you can name and save it. Saved spots appear as chips you can tap to reload anytime, and the app remembers the last location you loaded so it isn't blank the next time you open it.</p>
     </div>
 
     <div class="field">
@@ -406,7 +406,7 @@
 
     <div class="field">
       <label style="display:block;">Daylight</label>
-      <p class="tut-text">Shows first light, sunrise, sunset, and last light for the selected day. Sunrise and sunset come from real weather data; first and last light are estimated as civil twilight using your latitude and the date.</p>
+      <p class="tut-text">Shows first light, sunrise, sunset, and last light for the selected day. Sunrise and sunset come from real weather data; first and last light are estimated as civil twilight using your latitude and the date. Below that, "Best window" compares the dawn and dusk light windows for the selected day using cloud cover and wind, and tells you which one looks more favorable.</p>
     </div>
 
     <div class="field">
@@ -421,7 +421,7 @@
 
     <div class="field" style="margin-bottom:0;">
       <label style="display:block;">Score & breakdown</label>
-      <p class="tut-text">The big number is a 0-10 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. The bars below show how each individual factor scored.</p>
+      <p class="tut-text">The big number is a 0-10 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. "Copy summary" builds a short text blurb (location, date, score, conditions) and copies it to your clipboard, handy for sharing with a fishing buddy. The bars below show how each individual factor scored.</p>
     </div>
   </div>
 
@@ -484,6 +484,7 @@
       <div class="sun-item"><span class="lbl">Sunset</span><span class="val" id="sm-sunset">-</span></div>
       <div class="sun-item"><span class="lbl">Last light</span><span class="val" id="sm-lastlight">-</span></div>
     </div>
+    <div class="readout" id="sm-bestwindow" style="display:none;"></div>
   </div>
 
   <div class="card">
@@ -567,6 +568,8 @@
     <div class="total-num" id="totalNum">0.0</div>
     <div class="total-label" id="totalLabel">-</div>
     <div class="spawn-note" id="spawnNote"></div>
+    <button class="btn secondary" id="copySummaryBtn" style="margin-top:14px;">Copy summary</button>
+    <div class="status" id="copyStatus"></div>
   </div>
 
   <div class="card">
@@ -692,6 +695,57 @@ function fmtTime(d){
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+function avgInWindow(hourlySamples, field, startDate, endDate){
+  const vals = hourlySamples
+    .filter(s => {
+      const t = new Date(s.t).getTime();
+      return t >= startDate.getTime() && t <= endDate.getTime() && s[field] != null;
+    })
+    .map(s => s[field]);
+  if(vals.length === 0) return null;
+  return vals.reduce((a,b) => a+b, 0) / vals.length;
+}
+
+// Compares the dawn window (first light to 2hrs after sunrise) against the
+// dusk window (2hrs before sunset to last light) using the same cloud/wind
+// scoring the main score uses, and picks whichever looks more favorable.
+function computeBestWindow(key){
+  const times = computeSunMoonTimes(key);
+  const day = dailyData.byDate[key];
+  if(!times || !day || !day.hourly || day.hourly.length === 0) return null;
+
+  const dawnStart = times.firstLight;
+  const dawnEnd = new Date(times.sunrise.getTime() + 2 * 3600000);
+  const duskStart = new Date(times.sunset.getTime() - 2 * 3600000);
+  const duskEnd = times.lastLight;
+
+  const dawnCloud = avgInWindow(day.hourly, 'cloud', dawnStart, dawnEnd);
+  const dawnWind = avgInWindow(day.hourly, 'wind', dawnStart, dawnEnd);
+  const duskCloud = avgInWindow(day.hourly, 'cloud', duskStart, duskEnd);
+  const duskWind = avgInWindow(day.hourly, 'wind', duskStart, duskEnd);
+
+  if(dawnCloud == null && duskCloud == null) return null;
+
+  const dawnScore = (dawnCloud != null ? cloudScore(dawnCloud) : 0) + (dawnWind != null ? windScore(dawnWind) : 0);
+  const duskScore = (duskCloud != null ? cloudScore(duskCloud) : 0) + (duskWind != null ? windScore(duskWind) : 0);
+
+  const pickDawn = dawnScore >= duskScore;
+  const start = pickDawn ? dawnStart : duskStart;
+  const end = pickDawn ? dawnEnd : duskEnd;
+  const cloud = pickDawn ? dawnCloud : duskCloud;
+  const wind = pickDawn ? dawnWind : duskWind;
+  const otherLabel = pickDawn ? 'evening window' : 'morning window';
+
+  const reasons = [];
+  if(cloud != null && cloud >= 40) reasons.push('more cloud cover');
+  if(wind != null && wind >= 3 && wind <= 14) reasons.push('calmer wind');
+  const reasonText = reasons.length
+    ? reasons.join(' and ') + ' than the ' + otherLabel
+    : 'similar conditions to the ' + otherLabel + ', with low light favoring this one';
+
+  return { label: pickDawn ? 'Dawn' : 'Dusk', start, end, reasonText };
+}
+
 function updateSunMoonCard(key){
   const card = document.getElementById('sunMoonCard');
   const times = computeSunMoonTimes(key);
@@ -701,6 +755,16 @@ function updateSunMoonCard(key){
   document.getElementById('sm-sunrise').textContent = fmtTime(times.sunrise);
   document.getElementById('sm-sunset').textContent = fmtTime(times.sunset);
   document.getElementById('sm-lastlight').textContent = fmtTime(times.lastLight);
+
+  const bestWin = computeBestWindow(key);
+  const bwEl = document.getElementById('sm-bestwindow');
+  if(bestWin){
+    bwEl.style.display = 'block';
+    const reasonCap = bestWin.reasonText.charAt(0).toUpperCase() + bestWin.reasonText.slice(1);
+    bwEl.innerHTML = `<b>Best window: ${bestWin.label}, ${fmtTime(bestWin.start)} to ${fmtTime(bestWin.end)}</b>: ${reasonCap}.`;
+  } else {
+    bwEl.style.display = 'none';
+  }
 }
 
 const SEASON_PHASES = {
@@ -780,6 +844,16 @@ function persistSavedLocations(list){
   catch(e){ /* storage unavailable, fail silently */ }
 }
 
+function loadLastLocation(){
+  try{ return JSON.parse(localStorage.getItem('fishingLastLocation') || 'null'); }
+  catch(e){ return null; }
+}
+
+function persistLastLocation(lat, lon){
+  try{ localStorage.setItem('fishingLastLocation', JSON.stringify({ lat, lon })); }
+  catch(e){ /* storage unavailable, fail silently */ }
+}
+
 function renderSavedLocations(){
   const list = loadSavedLocations();
   const wrap = document.getElementById('savedLocsWrap');
@@ -844,13 +918,14 @@ async function fetchWeather(lat, lon){
   const byDate = {};
   for(let i = 0; i < h.time.length; i++){
     const dateKey = h.time[i].slice(0,10);
-    if(!byDate[dateKey]) byDate[dateKey] = { temps: [], precip: 0, cloud: [], pressure: [], wind: [] };
+    if(!byDate[dateKey]) byDate[dateKey] = { temps: [], precip: 0, cloud: [], pressure: [], wind: [], hourly: [] };
     const day = byDate[dateKey];
     if(h.temperature_2m[i] != null) day.temps.push(h.temperature_2m[i]);
     if(h.precipitation[i] != null) day.precip += h.precipitation[i];
     if(h.cloudcover[i] != null) day.cloud.push(h.cloudcover[i]);
     if(h.pressure_msl[i] != null) day.pressure.push(h.pressure_msl[i]);
     if(h.windspeed_10m[i] != null) day.wind.push(h.windspeed_10m[i]);
+    day.hourly.push({ t: h.time[i], cloud: h.cloudcover[i], wind: h.windspeed_10m[i] });
   }
 
   if(data.daily && data.daily.time){
@@ -1218,6 +1293,7 @@ async function runFetch(lat, lon){
     await fetchWeather(lat.toFixed(3), lon.toFixed(3));
     currentLat = lat;
     currentLon = lon;
+    persistLastLocation(lat, lon);
     status.textContent = `Loaded weather for ${lat.toFixed(2)}, ${lon.toFixed(2)}.`;
     document.getElementById('saveLocRow').style.display = 'flex';
     computeAllDayScores();
@@ -1312,6 +1388,48 @@ document.querySelectorAll('select, input[type=range]').forEach(el => {
   el.addEventListener('input', render);
 });
 render();
+
+document.getElementById('copySummaryBtn').addEventListener('click', () => {
+  if(!selectedDateKey) return;
+
+  const d = new Date(selectedDateKey + 'T12:00:00');
+  const dateLabel = d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+
+  let locLabel = currentLat != null ? `${currentLat.toFixed(2)}, ${currentLon.toFixed(2)}` : 'this spot';
+  const saved = loadSavedLocations().find(l =>
+    currentLat != null && Math.abs(l.lat - currentLat) < 0.01 && Math.abs(l.lon - currentLon) < 0.01);
+  if(saved) locLabel = saved.name;
+
+  const scoreText = document.getElementById('totalNum').textContent;
+  const labelText = document.getElementById('totalLabel').textContent;
+
+  const raw = readInputs();
+  const windMph = Number(document.getElementById('wind').value);
+  const entry = dailyData && dailyData.byDate[selectedDateKey];
+  const pDelta = entry && entry.analysis ? entry.analysis.pressureDeltaHpa : 0;
+  const tags = tagsForDay(raw, pDelta, windMph);
+  const tagText = tags.length ? tags.join(', ') : 'steady conditions';
+  const tagCap = tagText.charAt(0).toUpperCase() + tagText.slice(1);
+
+  const summary = `${locLabel}, ${dateLabel}: ${scoreText}/10 (${labelText}). ${tagCap}.`;
+
+  const status = document.getElementById('copyStatus');
+  const showResult = (copied) => {
+    status.textContent = copied ? 'Copied to clipboard.' : summary;
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(summary).then(() => showResult(true)).catch(() => showResult(false));
+  } else {
+    showResult(false);
+  }
+});
+
+// auto-load the last location used, if any, so returning visitors
+// don't start from a blank state
+const lastLoc = loadLastLocation();
+if(lastLoc && typeof lastLoc.lat === 'number' && typeof lastLoc.lon === 'number'){
+  runFetch(lastLoc.lat, lastLoc.lon);
+}
 </script>
 </body>
 </html>
