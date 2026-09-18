@@ -307,6 +307,19 @@
     text-align: left;
   }
   .spawn-note b{color: var(--sand); font-weight: 600;}
+  .day-summary{
+    text-align: left;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .day-summary-line{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+    color: var(--paper);
+    margin: 0 0 12px;
+  }
+  .day-summary .sun-grid{ margin-bottom: 0; }
   .tut-text{
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 0.82rem;
@@ -421,7 +434,7 @@
 
     <div class="field" style="margin-bottom:0;">
       <label style="display:block;">Score & breakdown</label>
-      <p class="tut-text">The big number is a 0-10 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. "Copy summary" builds a short text blurb (location, date, score, conditions) and copies it to your clipboard, handy for sharing with a fishing buddy. The bars below show how each individual factor scored.</p>
+      <p class="tut-text">The big number is a 0-10 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. Below it, a plain-language summary and a grid list out every metric (pressure, wind, cloud cover, precipitation, moon phase, water temp) for the day. "Copy summary" builds a short text blurb from all of it and copies it to your clipboard, handy for sharing with a fishing buddy. The bars further down show how each individual factor scored.</p>
     </div>
   </div>
 
@@ -568,7 +581,11 @@
     <div class="total-num" id="totalNum">0.0</div>
     <div class="total-label" id="totalLabel">-</div>
     <div class="spawn-note" id="spawnNote"></div>
-    <button class="btn secondary" id="copySummaryBtn" style="margin-top:14px;">Copy summary</button>
+    <div class="day-summary" id="daySummary">
+      <p class="day-summary-line" id="daySummaryText"></p>
+      <div class="sun-grid" id="daySummaryGrid"></div>
+    </div>
+    <button class="btn secondary" id="copySummaryBtn" style="margin-top:4px;">Copy summary</button>
     <div class="status" id="copyStatus"></div>
   </div>
 
@@ -1321,15 +1338,16 @@ function readInputs(){
   };
 }
 
+const METRIC_LABELS = {
+  pressure: {10:'Falling fast',8:'Falling slowly',6:'Stable',4:'Rising slowly',2:'Rising fast'},
+  precip: {6:'None',9:'Light',5:'Moderate',2:'Heavy'},
+  moon: {9:'New/Full', 5:'Waxing/waning'},
+  tempTrend: {9:'Warming',6:'Stable',3:'Cooling'}
+};
+
 function labelFor(id, val){
   const el = document.getElementById('v-' + id);
-  const selectMap = {
-    pressure: {10:'Falling fast',8:'Falling slowly',6:'Stable',4:'Rising slowly',2:'Rising fast'},
-    precip: {6:'None',9:'Light',5:'Moderate',2:'Heavy'},
-    moon: {9:'New/Full', 5:'Waxing/waning'},
-    tempTrend: {9:'Warming',6:'Stable',3:'Cooling'}
-  };
-  if(selectMap[id]) el.textContent = selectMap[id][val] || '';
+  if(METRIC_LABELS[id]) el.textContent = METRIC_LABELS[id][val] || '';
 }
 
 function render(){
@@ -1360,6 +1378,27 @@ function render(){
   document.getElementById('totalLabel').textContent = label + ' · ' + spawn.phase;
   document.getElementById('spawnNote').innerHTML = '<b>' + spawn.phase + ' (' + watertemp + '°F)</b>: ' + spawn.note +
     (spawn.bonus !== 0 ? ' <i>(' + (spawn.bonus > 0 ? '+' : '') + spawn.bonus + ' to total score)</i>' : '');
+
+  const windMphVal = Number(document.getElementById('wind').value);
+  const cloudPctVal = Number(document.getElementById('cloud').value);
+  const entryForDelta = (dailyData && selectedDateKey) ? dailyData.byDate[selectedDateKey] : null;
+  const pDeltaForSummary = (entryForDelta && entryForDelta.analysis) ? entryForDelta.analysis.pressureDeltaHpa : 0;
+  const summaryTags = tagsForDay(raw, pDeltaForSummary, windMphVal);
+  const summaryTagText = summaryTags.length ? summaryTags.join(', ') : 'steady conditions across the board';
+  const summaryTagCap = summaryTagText.charAt(0).toUpperCase() + summaryTagText.slice(1);
+  document.getElementById('daySummaryText').textContent = `${summaryTagCap}.`;
+
+  const summaryItems = [
+    { lbl: 'Pressure', val: METRIC_LABELS.pressure[raw.pressure] || '-' },
+    { lbl: 'Wind', val: `${windTag(windMphVal)} (${windMphVal} mph)` },
+    { lbl: 'Cloud cover', val: `${cloudPctVal}%` },
+    { lbl: 'Precipitation', val: METRIC_LABELS.precip[raw.precip] || '-' },
+    { lbl: 'Moon phase', val: METRIC_LABELS.moon[raw.moon] || '-' },
+    { lbl: 'Water temp', val: `${watertemp}°F, ${(METRIC_LABELS.tempTrend[raw.tempTrend] || '').toLowerCase()}` },
+  ];
+  document.getElementById('daySummaryGrid').innerHTML = summaryItems.map(it =>
+    `<div class="sun-item"><span class="lbl">${it.lbl}</span><span class="val">${it.val}</span></div>`
+  ).join('');
 
   const bars = document.getElementById('bars');
   bars.innerHTML = '';
