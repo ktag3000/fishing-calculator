@@ -352,6 +352,26 @@
     -webkit-overflow-scrolling: touch;
   }
   .chart-scroll svg{ display:block; }
+  .sun-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+    margin-bottom: 14px;
+  }
+  .sun-item{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .sun-item .lbl{
+    display:block;
+    font-size: 0.72rem;
+    color: var(--teal);
+    margin-bottom: 2px;
+  }
+  .sun-item .val{
+    display:block;
+    font-size: 0.98rem;
+    color: var(--sand);
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+  }
 </style>
 </head>
 <body>
@@ -382,6 +402,11 @@
     <div class="field">
       <label style="display:block;">📈 Pressure trend chart</label>
       <p class="tut-text">Tap the 📈 icon to expand a line graph of pressure (in inHg) across all 21 days. It opens centered on today, marked with a highlighted dot and a dashed guide line, so you can see at a glance whether pressure has been falling, rising, or holding steady around now.</p>
+    </div>
+
+    <div class="field">
+      <label style="display:block;">Sun & moon</label>
+      <p class="tut-text">Shows first light, sunrise, sunset, and last light for the selected day. Sunrise and sunset come from real weather data; first and last light are estimated as civil twilight using your latitude and the date.</p>
     </div>
 
     <div class="field">
@@ -448,6 +473,16 @@
         <p class="chart-title">Pressure trend (inHg)</p>
         <div class="chart-scroll" id="pressureChartScroll"></div>
       </div>
+    </div>
+  </div>
+
+  <div class="card" id="sunMoonCard" style="display:none;">
+    <p class="section-title">Sun & moon</p>
+    <div class="sun-grid">
+      <div class="sun-item"><span class="lbl">First light</span><span class="val" id="sm-firstlight">-</span></div>
+      <div class="sun-item"><span class="lbl">Sunrise</span><span class="val" id="sm-sunrise">-</span></div>
+      <div class="sun-item"><span class="lbl">Sunset</span><span class="val" id="sm-sunset">-</span></div>
+      <div class="sun-item"><span class="lbl">Last light</span><span class="val" id="sm-lastlight">-</span></div>
     </div>
   </div>
 
@@ -590,16 +625,82 @@ function tempTrendScoreFromDelta(deltaF){
   return 6;
 }
 
-function moonScoreForDate(dateStr){
-  const ref = Date.UTC(2000,0,6,18,14,0);
-  const synodic = 29.53058867;
+const SYNODIC_MONTH = 29.53058867;
+
+function moonPhaseFraction(dateStr){
+  const ref = Date.UTC(2000,0,6,18,14,0); // known new moon
   const d = new Date(dateStr + 'T12:00:00Z').getTime();
   let days = (d - ref) / 86400000;
-  let phase = (days % synodic) / synodic;
+  let phase = (days % SYNODIC_MONTH) / SYNODIC_MONTH;
   if(phase < 0) phase += 1;
+  return phase; // 0 = new, 0.5 = full
+}
+
+function moonScoreForDate(dateStr){
+  const phase = moonPhaseFraction(dateStr);
   const distNew = Math.min(phase, 1 - phase);
   const distFull = Math.abs(phase - 0.5);
   return Math.min(distNew, distFull) < 0.09 ? 9 : 5;
+}
+
+/* ---------- sun position (civil twilight) ---------- */
+
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
+
+function dayOfYearFromKey(key){
+  const d = new Date(key + 'T00:00:00');
+  const start = new Date(d.getFullYear(), 0, 0);
+  return Math.floor((d - start) / 86400000);
+}
+
+function solarDeclinationDeg(dayOfYear){
+  return 23.44 * Math.sin(toRad((360 / 365) * (dayOfYear - 81)));
+}
+
+function hourAngleDeg(latDeg, decDeg, zenithDeg){
+  const lat = toRad(latDeg), dec = toRad(decDeg), zen = toRad(zenithDeg);
+  let cosH = (Math.cos(zen) - Math.sin(dec) * Math.sin(lat)) / (Math.cos(dec) * Math.cos(lat));
+  cosH = Math.max(-1, Math.min(1, cosH));
+  return toDeg(Math.acos(cosH));
+}
+
+// minutes between official sunrise/sunset (zenith 90.833) and civil twilight (zenith 96)
+function twilightMinutesFor(latDeg, key){
+  const doy = dayOfYearFromKey(key);
+  const dec = solarDeclinationDeg(doy);
+  const hStd = hourAngleDeg(latDeg, dec, 90.833);
+  const hCivil = hourAngleDeg(latDeg, dec, 96);
+  const diff = (hCivil - hStd) * 4; // degrees -> minutes (15 deg/hr)
+  return (isFinite(diff) && diff > 0) ? diff : 30;
+}
+
+function computeSunMoonTimes(key){
+  const day = dailyData.byDate[key];
+  if(!day || !day.sunrise || !day.sunset || currentLat == null) return null;
+
+  const sunrise = new Date(day.sunrise);
+  const sunset = new Date(day.sunset);
+  const twilightMin = twilightMinutesFor(currentLat, key);
+  const firstLight = new Date(sunrise.getTime() - twilightMin * 60000);
+  const lastLight = new Date(sunset.getTime() + twilightMin * 60000);
+
+  return { firstLight, sunrise, sunset, lastLight };
+}
+
+function fmtTime(d){
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function updateSunMoonCard(key){
+  const card = document.getElementById('sunMoonCard');
+  const times = computeSunMoonTimes(key);
+  if(!times){ card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  document.getElementById('sm-firstlight').textContent = fmtTime(times.firstLight);
+  document.getElementById('sm-sunrise').textContent = fmtTime(times.sunrise);
+  document.getElementById('sm-sunset').textContent = fmtTime(times.sunset);
+  document.getElementById('sm-lastlight').textContent = fmtTime(times.lastLight);
 }
 
 const SEASON_PHASES = {
@@ -731,6 +832,7 @@ async function fetchWeather(lat, lon){
   document.getElementById('locStatus').textContent = 'Loading weather…';
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&hourly=temperature_2m,precipitation,cloudcover,pressure_msl,windspeed_10m` +
+    `&daily=sunrise,sunset` +
     `&past_days=10&forecast_days=10&timezone=auto` +
     `&temperature_unit=fahrenheit&windspeed_unit=mph&precipitation_unit=inch`;
 
@@ -749,6 +851,14 @@ async function fetchWeather(lat, lon){
     if(h.cloudcover[i] != null) day.cloud.push(h.cloudcover[i]);
     if(h.pressure_msl[i] != null) day.pressure.push(h.pressure_msl[i]);
     if(h.windspeed_10m[i] != null) day.wind.push(h.windspeed_10m[i]);
+  }
+
+  if(data.daily && data.daily.time){
+    data.daily.time.forEach((dateKey, i) => {
+      if(!byDate[dateKey]) return;
+      byDate[dateKey].sunrise = data.daily.sunrise[i];
+      byDate[dateKey].sunset = data.daily.sunset[i];
+    });
   }
 
   const avg = arr => arr.reduce((a,b) => a+b, 0) / arr.length;
@@ -869,6 +979,8 @@ function selectDay(key){
   waterReadout.innerHTML = `Estimated from 5-day trailing air temp. Not a direct sensor reading. Adjust the slider if you have real data for your lake.`;
 
   render();
+
+  updateSunMoonCard(key);
 
   // overwrite the pressure label with the actual inHg reading
   const label = document.getElementById('v-pressure').textContent;
