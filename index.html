@@ -320,6 +320,104 @@
     margin: 0 0 12px;
   }
   .day-summary .sun-grid{ margin-bottom: 0; }
+  .tab-bar{
+    display:flex;
+    gap: 8px;
+    margin: 0 0 14px;
+  }
+  .tab-btn{
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--teal);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .tab-btn.active{
+    background: var(--rust);
+    border-color: var(--rust);
+    color: var(--paper);
+    font-weight: 600;
+  }
+  .hour-table{
+    display:flex;
+    flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.8rem;
+    max-height: 480px;
+    overflow-y: auto;
+  }
+  .hour-header, .hour-row{
+    display:grid;
+    grid-template-columns: 0.85fr 0.75fr 0.95fr 0.7fr 0.75fr 0.85fr;
+    gap: 4px;
+    padding: 7px 2px;
+    border-top: 1px solid var(--line);
+    align-items: center;
+    text-align: right;
+  }
+  .hour-header span:first-child, .hour-row span:first-child{ text-align: left; }
+  .hour-header{
+    color: var(--teal);
+    font-size: 0.7rem;
+    border-top: none;
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+  }
+  .hour-row{ color: var(--paper); }
+  .hour-row.current{
+    background: rgba(193,98,45,0.14);
+    border-radius: 6px;
+  }
+  .hour-row .h-time{ color: var(--sand); font-weight: 600; }
+  .h-baro{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap: 4px;
+  }
+  .h-baro .baro-dot{
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display:inline-block;
+  }
+  .baro-guide{
+    display:flex;
+    flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.8rem;
+  }
+  .baro-header, .baro-row{
+    display:grid;
+    grid-template-columns: 1fr 1.1fr 0.9fr;
+    gap: 8px;
+    padding: 8px 0;
+    border-top: 1px solid var(--line);
+    align-items: center;
+  }
+  .baro-header{
+    color: var(--teal);
+    font-size: 0.72rem;
+    border-top: none;
+  }
+  .baro-row{ color: var(--paper); }
+  .baro-row span:first-child{ color: var(--sand); font-weight: 600; }
+  .baro-activity{
+    display:flex;
+    align-items:center;
+    gap: 6px;
+  }
+  .baro-dot{
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display:inline-block;
+  }
   .tut-text{
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 0.82rem;
@@ -408,6 +506,11 @@
     </div>
 
     <div class="field">
+      <label style="display:block;">Score / Weather tabs</label>
+      <p class="tut-text">Once a location is loaded, two tabs appear above the day's details. "Score" shows the fishing score and everything that feeds it. "Weather" shows the plain hourly forecast for whichever day is selected, every factor the score uses: temperature, barometric pressure, cloud cover, rain, and wind hour by hour, plus moon phase and water temp for the day as a whole. It also includes a quick reference table for reading pressure on its own.</p>
+    </div>
+
+    <div class="field">
       <label style="display:block;">ⓘ Upcoming good days</label>
       <p class="tut-text">Tap the ⓘ next to "Select a day" to see which upcoming days look most promising: falling pressure, an approaching front, overcast skies, calm or gusty wind, and moon phase are all called out when they're notable.</p>
     </div>
@@ -434,7 +537,7 @@
 
     <div class="field" style="margin-bottom:0;">
       <label style="display:block;">Score & breakdown</label>
-      <p class="tut-text">The big number is a 0-10 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. Below it, a plain-language summary and a grid list out every metric (pressure, wind, cloud cover, precipitation, moon phase, water temp) for the day. "Copy summary" builds a short text blurb from all of it and copies it to your clipboard, handy for sharing with a fishing buddy. The bars further down show how each individual factor scored.</p>
+      <p class="tut-text">The big number is a 0-10 score combining all six weighted factors plus a bonus or penalty for the current spawn phase. Below it, a plain-language summary and a grid list out every metric (pressure, wind, cloud cover, precipitation, moon phase, water temp) for the day. The bars further down show how each individual factor scored.</p>
     </div>
   </div>
 
@@ -489,6 +592,13 @@
     </div>
   </div>
 
+  <div class="tab-bar" id="mainTabBar" style="display:none;">
+    <button class="tab-btn active" id="tabScoreBtn">Score</button>
+    <button class="tab-btn" id="tabWeatherBtn">Weather</button>
+  </div>
+
+  <div id="scoreTabContent">
+
   <div class="card" id="sunMoonCard" style="display:none;">
     <p class="section-title">Daylight</p>
     <div class="sun-grid">
@@ -506,11 +616,11 @@
     <div class="field">
       <label>Barometric pressure trend <span class="val" id="v-pressure"></span></label>
       <select id="pressure">
-        <option value="10">Falling fast</option>
-        <option value="8">Falling slowly</option>
+        <option value="10">Falling fast (front approaching)</option>
+        <option value="8">Stabilized 2-3 days (hot bite)</option>
         <option value="6" selected>Stable</option>
-        <option value="4">Rising slowly</option>
-        <option value="2">Rising fast (post-front)</option>
+        <option value="4">On the move (acclimating)</option>
+        <option value="2">Rising fast (post-front lull)</option>
       </select>
     </div>
 
@@ -585,13 +695,40 @@
       <p class="day-summary-line" id="daySummaryText"></p>
       <div class="sun-grid" id="daySummaryGrid"></div>
     </div>
-    <button class="btn secondary" id="copySummaryBtn" style="margin-top:4px;">Copy summary</button>
-    <div class="status" id="copyStatus"></div>
   </div>
 
   <div class="card">
     <p class="section-title">Score breakdown</p>
     <div class="bars" id="bars"></div>
+  </div>
+
+  </div>
+
+  <div id="weatherTabContent" style="display:none;">
+    <div class="card">
+      <p class="section-title">Hourly forecast</p>
+      <div id="hourlyForecastWrap"><p class="tut-text">Load a location to see the hourly forecast.</p></div>
+    </div>
+
+    <div class="card">
+      <p class="section-title">Pressure guide</p>
+      <div class="baro-guide">
+        <div class="baro-header"><span>Trend</span><span>Typical inHg</span><span>Bass activity</span></div>
+        <div class="baro-row">
+          <span>Falling</span><span>Below 29.80</span>
+          <span class="baro-activity"><span class="baro-dot" style="background:var(--reed)"></span>High</span>
+        </div>
+        <div class="baro-row">
+          <span>Stable</span><span>29.80 – 30.20</span>
+          <span class="baro-activity"><span class="baro-dot" style="background:var(--sand)"></span>Normal</span>
+        </div>
+        <div class="baro-row">
+          <span>Rising / high</span><span>Above 30.20</span>
+          <span class="baro-activity"><span class="baro-dot" style="background:var(--rust)"></span>Low</span>
+        </div>
+      </div>
+      <p class="tut-text" style="margin-top:10px;">General guideline, not a hard rule: this table reflects the pressure level itself. The score's pressure factor works a bit differently: a rapidly falling barometer is the one time pressure "on the move" is a strong trigger; otherwise, a shifting barometer usually means fish are still acclimating and biting less, and the best bite tends to show up 2-3 days after pressure has stabilized.</p>
+    </div>
   </div>
 </div>
 
@@ -624,12 +761,60 @@ function cloudScore(pct){
   return 7;
 }
 
-function pressureScoreFromDelta(deltaHpa){
-  if(deltaHpa <= -3) return 10;
-  if(deltaHpa <= -1) return 8;
-  if(deltaHpa < 1) return 6;
-  if(deltaHpa < 3) return 4;
-  return 2;
+// Counts consecutive "calm" day-over-day transitions ending at dateKeys[idx] (idx included).
+// A calm transition is one where |delta| is under calmThreshold hPa. Used to find how long
+// pressure has been holding steady, so a multi-day "stabilized" window can be rewarded rather
+// than just looking at today's single delta.
+function pressureStabilityStreak(dateKeys, byDate, idx, calmThreshold){
+  let streak = 0;
+  for(let i = idx; i > 0; i--){
+    const delta = byDate[dateKeys[i]].avgPressureHpa - byDate[dateKeys[i-1]].avgPressureHpa;
+    if(Math.abs(delta) < calmThreshold) streak++;
+    else break;
+  }
+  return streak;
+}
+
+// Below this absolute level (matches the Pressure guide card's "High activity" row), pressure
+// is low enough on its own to favor feeding, regardless of which way it's trending that day.
+const LOW_PRESSURE_INHG = 29.80;
+
+// Pressure scoring, rebuilt around a "moving vs. stabilized" model instead of a single day's
+// delta in isolation, with a low-absolute-pressure bonus layered on top:
+//  - A rapidly falling barometer (an approaching front) is the one case where "on the move"
+//    is still a strong feeding trigger, so it scores best right away.
+//  - Otherwise, a barometer that's actively moving (rising or falling gradually, or rising fast)
+//    means fish are still acclimating to the new pressure level, so it scores worse than before.
+//  - Once pressure holds steady, day 2-3 of that stable stretch is the "hot bite" window bass
+//    anglers describe, so that gets a bonus over a bare "stable" reading.
+//  - A very long stable stretch (4+ days) tapers back to a plain "stable" score, since the
+//    2-3 day window is specifically what's favorable, not indefinite calm.
+//  - Whatever the trend, a low absolute reading (under 29.80 inHg) is still good news on its
+//    own, so it nudges the score up a notch even on an otherwise middling trend day.
+function pressureScoreFromHistory(dateKeys, byDate, idx){
+  const day = byDate[dateKeys[idx]];
+  const lowPressure = hpaToInHg(day.avgPressureHpa) < LOW_PRESSURE_INHG;
+  const bump = score => lowPressure ? Math.min(10, score + 2) : score;
+
+  if(idx <= 0) return bump(6); // no prior day to compare against, assume neutral/stable
+
+  const RAPID_HPA = 3;   // magnitude of delta considered a "rapid" swing
+  const CALM_HPA = 1;    // magnitude of delta considered "holding steady"
+
+  const prevDay = byDate[dateKeys[idx - 1]];
+  const delta = day.avgPressureHpa - prevDay.avgPressureHpa;
+
+  if(delta <= -RAPID_HPA) return 10; // rapid fall / front approaching: already the max, no bump needed
+
+  if(Math.abs(delta) < CALM_HPA){
+    const streak = pressureStabilityStreak(dateKeys, byDate, idx, CALM_HPA);
+    if(streak >= 2 && streak <= 3) return bump(8); // day 2-3 of stability: the hot-bite window
+    return bump(6); // day 1 of stability, or a long stable stretch tapered back to neutral
+  }
+
+  if(delta >= RAPID_HPA) return bump(2); // rising fast: post-frontal lull, typically the toughest bite
+
+  return bump(4); // moving gradually (slow rise or slow fall, non-rapid): fish still acclimating
 }
 
 function precipScoreFromInches(inches){
@@ -784,6 +969,63 @@ function updateSunMoonCard(key){
   }
 }
 
+// matches the thresholds shown in the Pressure guide card
+function baroActivityColor(inHg){
+  if(inHg < 29.80) return 'var(--reed)';
+  if(inHg <= 30.20) return 'var(--sand)';
+  return 'var(--rust)';
+}
+
+function renderHourlyForecast(key){
+  const wrap = document.getElementById('hourlyForecastWrap');
+  const day = dailyData && dailyData.byDate[key];
+  if(!day || !day.hourly || day.hourly.length === 0){
+    wrap.innerHTML = '<p class="tut-text">No hourly data available for this day.</p>';
+    return;
+  }
+
+  const isToday = key === dailyData.todayKey;
+  const nowHour = new Date().getHours();
+
+  const rows = day.hourly.map(s => {
+    const dt = new Date(s.t);
+    const isCurrent = isToday && dt.getHours() === nowHour;
+    const timeLabel = dt.toLocaleTimeString(undefined, { hour: 'numeric' });
+    const tempText = s.temp != null ? Math.round(s.temp) + '°' : '-';
+    let pressureText = '-';
+    if(s.pressure != null){
+      const inHg = hpaToInHg(s.pressure);
+      const dotColor = baroActivityColor(inHg);
+      pressureText = `<span class="baro-dot" style="background:${dotColor}"></span>${inHg.toFixed(2)}`;
+    }
+    const cloudText = s.cloud != null ? Math.round(s.cloud) + '%' : '-';
+    const precipText = s.precip != null ? s.precip.toFixed(2) : '-';
+    const windText = s.wind != null ? Math.round(s.wind) : '-';
+    return `<div class="hour-row${isCurrent ? ' current' : ''}">` +
+      `<span class="h-time">${timeLabel}</span><span>${tempText}</span><span class="h-baro">${pressureText}</span><span>${cloudText}</span><span>${precipText}</span><span>${windText}</span>` +
+      `</div>`;
+  }).join('');
+
+  // moon phase and water temp are daily, not hourly, so they're
+  // summarized once above the table rather than repeated per row
+  let contextLine = '';
+  if(day.analysis){
+    const moonText = METRIC_LABELS.moon[day.analysis.raw.moon] || '-';
+    const trendText = (METRIC_LABELS.tempTrend[day.analysis.raw.tempTrend] || '').toLowerCase();
+    contextLine = `<p class="tut-text" style="margin-bottom:12px;">` +
+      `Moon phase: <b style="color:var(--sand)">${moonText}</b> &nbsp;·&nbsp; ` +
+      `Water temp: <b style="color:var(--sand)">${Math.round(day.analysis.watertemp)}°F, ${trendText}</b>` +
+      `</p>`;
+  }
+
+  wrap.innerHTML =
+    contextLine +
+    '<div class="hour-table">' +
+    '<div class="hour-header"><span>Time</span><span>Temp °F</span><span>Baro inHg</span><span>Cloud %</span><span>Rain in</span><span>Wind mph</span></div>' +
+    rows +
+    '</div>';
+}
+
 const SEASON_PHASES = {
   winter: { phase: 'Winter / dormant', bonus: -2,
     note: 'Water is cold and fish are sluggish, holding deep and feeding on a slow metabolism. Small, slow presentations outperform reaction baits.' },
@@ -831,10 +1073,12 @@ function windTag(windMph){
   return 'gusty wind';
 }
 
-function tagsForDay(raw, pressureDeltaHpa, windMph){
+function tagsForDay(raw, windMph){
   const tags = [];
-  if(raw.pressure >= 8) tags.push(pressureDeltaHpa <= -3 ? 'falling pressure, front approaching' : 'falling pressure');
-  else if(raw.pressure <= 2) tags.push('pressure rising fast (post-front lull)');
+  if(raw.pressure === 10) tags.push('pressure falling fast, front approaching');
+  else if(raw.pressure === 8) tags.push('pressure stabilized 2-3 days, bite heating up');
+  else if(raw.pressure === 4) tags.push('pressure on the move, fish acclimating');
+  else if(raw.pressure === 2) tags.push('pressure rising fast (post-front lull)');
   if(raw.cloud >= 9) tags.push('overcast skies');
   if(raw.precip === 9) tags.push('light rain moving through');
   if(windMph < 3 || windMph > 20 || raw.wind === 9) tags.push(windTag(windMph));
@@ -942,7 +1186,7 @@ async function fetchWeather(lat, lon){
     if(h.cloudcover[i] != null) day.cloud.push(h.cloudcover[i]);
     if(h.pressure_msl[i] != null) day.pressure.push(h.pressure_msl[i]);
     if(h.windspeed_10m[i] != null) day.wind.push(h.windspeed_10m[i]);
-    day.hourly.push({ t: h.time[i], cloud: h.cloudcover[i], wind: h.windspeed_10m[i] });
+    day.hourly.push({ t: h.time[i], temp: h.temperature_2m[i], precip: h.precipitation[i], cloud: h.cloudcover[i], wind: h.windspeed_10m[i], pressure: h.pressure_msl[i] });
   }
 
   if(data.daily && data.daily.time){
@@ -986,7 +1230,7 @@ function analyzeDay(key){
   const pressureDeltaHpa = prevDay ? (day.avgPressureHpa - prevDay.avgPressureHpa) : 0;
 
   const raw = {
-    pressure: pressureScoreFromDelta(pressureDeltaHpa),
+    pressure: pressureScoreFromHistory(dailyData.dateKeys, dailyData.byDate, idx),
     wind: windScore(day.avgWind),
     cloud: cloudScore(day.avgCloud),
     precip: precipScoreFromInches(day.precip),
@@ -1073,6 +1317,7 @@ function selectDay(key){
   render();
 
   updateSunMoonCard(key);
+  renderHourlyForecast(key);
 
   // overwrite the pressure label with the actual inHg reading
   const label = document.getElementById('v-pressure').textContent;
@@ -1086,7 +1331,7 @@ function buildForecastBubble(){
 
   const candidates = upcomingKeys.map(key => {
     const entry = dailyData.byDate[key];
-    const tags = tagsForDay(entry.analysis.raw, entry.analysis.pressureDeltaHpa, entry.analysis.day.avgWind);
+    const tags = tagsForDay(entry.analysis.raw, entry.analysis.day.avgWind);
     return { key, total: entry.total, tags };
   }).filter(c => c.total >= 6 || c.tags.some(t => t.includes('front')));
 
@@ -1313,6 +1558,7 @@ async function runFetch(lat, lon){
     persistLastLocation(lat, lon);
     status.textContent = `Loaded weather for ${lat.toFixed(2)}, ${lon.toFixed(2)}.`;
     document.getElementById('saveLocRow').style.display = 'flex';
+    document.getElementById('mainTabBar').style.display = 'flex';
     computeAllDayScores();
     buildDayStrip();
     buildForecastBubble();
@@ -1339,7 +1585,7 @@ function readInputs(){
 }
 
 const METRIC_LABELS = {
-  pressure: {10:'Falling fast',8:'Falling slowly',6:'Stable',4:'Rising slowly',2:'Rising fast'},
+  pressure: {10:'Falling fast (front approaching)',8:'Stabilized 2-3 days (hot bite)',6:'Stable',4:'On the move (acclimating)',2:'Rising fast (post-front lull)'},
   precip: {6:'None',9:'Light',5:'Moderate',2:'Heavy'},
   moon: {9:'New/Full', 5:'Waxing/waning'},
   tempTrend: {9:'Warming',6:'Stable',3:'Cooling'}
@@ -1381,9 +1627,7 @@ function render(){
 
   const windMphVal = Number(document.getElementById('wind').value);
   const cloudPctVal = Number(document.getElementById('cloud').value);
-  const entryForDelta = (dailyData && selectedDateKey) ? dailyData.byDate[selectedDateKey] : null;
-  const pDeltaForSummary = (entryForDelta && entryForDelta.analysis) ? entryForDelta.analysis.pressureDeltaHpa : 0;
-  const summaryTags = tagsForDay(raw, pDeltaForSummary, windMphVal);
+  const summaryTags = tagsForDay(raw, windMphVal);
   const summaryTagText = summaryTags.length ? summaryTags.join(', ') : 'steady conditions across the board';
   const summaryTagCap = summaryTagText.charAt(0).toUpperCase() + summaryTagText.slice(1);
   document.getElementById('daySummaryText').textContent = `${summaryTagCap}.`;
@@ -1428,40 +1672,15 @@ document.querySelectorAll('select, input[type=range]').forEach(el => {
 });
 render();
 
-document.getElementById('copySummaryBtn').addEventListener('click', () => {
-  if(!selectedDateKey) return;
-
-  const d = new Date(selectedDateKey + 'T12:00:00');
-  const dateLabel = d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-
-  let locLabel = currentLat != null ? `${currentLat.toFixed(2)}, ${currentLon.toFixed(2)}` : 'this spot';
-  const saved = loadSavedLocations().find(l =>
-    currentLat != null && Math.abs(l.lat - currentLat) < 0.01 && Math.abs(l.lon - currentLon) < 0.01);
-  if(saved) locLabel = saved.name;
-
-  const scoreText = document.getElementById('totalNum').textContent;
-  const labelText = document.getElementById('totalLabel').textContent;
-
-  const raw = readInputs();
-  const windMph = Number(document.getElementById('wind').value);
-  const entry = dailyData && dailyData.byDate[selectedDateKey];
-  const pDelta = entry && entry.analysis ? entry.analysis.pressureDeltaHpa : 0;
-  const tags = tagsForDay(raw, pDelta, windMph);
-  const tagText = tags.length ? tags.join(', ') : 'steady conditions';
-  const tagCap = tagText.charAt(0).toUpperCase() + tagText.slice(1);
-
-  const summary = `${locLabel}, ${dateLabel}: ${scoreText}/10 (${labelText}). ${tagCap}.`;
-
-  const status = document.getElementById('copyStatus');
-  const showResult = (copied) => {
-    status.textContent = copied ? 'Copied to clipboard.' : summary;
-  };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(summary).then(() => showResult(true)).catch(() => showResult(false));
-  } else {
-    showResult(false);
-  }
-});
+function switchTab(tab){
+  const isScore = tab === 'score';
+  document.getElementById('scoreTabContent').style.display = isScore ? '' : 'none';
+  document.getElementById('weatherTabContent').style.display = isScore ? 'none' : '';
+  document.getElementById('tabScoreBtn').classList.toggle('active', isScore);
+  document.getElementById('tabWeatherBtn').classList.toggle('active', !isScore);
+}
+document.getElementById('tabScoreBtn').addEventListener('click', () => switchTab('score'));
+document.getElementById('tabWeatherBtn').addEventListener('click', () => switchTab('weather'));
 
 // auto-load the last location used, if any, so returning visitors
 // don't start from a blank state
